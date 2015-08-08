@@ -318,10 +318,9 @@ def prepare_NPinter_feature():
 
 def prepare_feature():
     name_list = read_name_from_fasta('ncRNA-protein/RNA_seq.fa')
-    RNA_fea_dict = read_RNA_graph_feature(name_list) #perl fasta2shrep_gspan.pl –seq-graph-t -nostr -stdout -fasta RNA_seq.fa| gzip > RNA_seq.gz
-    #EDeN/EDeN -a FEATURE -i RNA_seq.gz
+    RNA_fea_dict = read_RNA_graph_feature(name_list) 
+    #
     protein_fea_dict = read_protein_feature() 
-    #python ProFET/ProFET/feat_extract/pipeline.py --trainingSetDir '/home/panxy/eclipse/rna-protein/ProFET/fastas/NPInter/' --trainFeatures True --resultsDir '/home/panxy/eclipse/rna-protein/ProFET/feature' --classType file
     #pdb.set_trace()
     train = []
     label = []
@@ -499,8 +498,8 @@ def deep_classifier_keras():
         acc, precision, sensitivity, specificity, MCC = calculate_performace(len(real_labels), y_pred,  real_labels)
         print acc, precision, sensitivity, specificity, MCC
 #get_all_PDB_id()
-get_RNA_protein()
-get_NPinter_interaction()  
-#deep_classifier_keras()
+#get_RNA_protein()
+#get_NPinter_interaction()  
+deep_classifier_keras()
 #read_protein_feature()       
 #ncRNA_seq_dict = get_noncode_seq()
