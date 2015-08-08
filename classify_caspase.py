@@ -14,6 +14,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.preprocessing import StandardScaler
 from sklearn.cross_validation import train_test_split
 import gzip
+from random import randint
 
 import pandas as pd
 from keras.models import Sequential
@@ -98,9 +99,7 @@ def deep_learning_classifier(X_train, y_train):
     
     score = nn.score(X_test, y_test)
 '''    
-    
-    
-def get_all_PDB_id():
+def get_uniq_pdb_protein_rna():
     protein_set = set()
     with open('ncRNA-protein/NegativePairs.csv', 'r') as fp:
         for line in fp:
@@ -117,12 +116,12 @@ def get_all_PDB_id():
             pro1, pro2 = line.rstrip().split('\t')
             protein_set.add(pro1.split('-')[0])
             protein_set.add(pro2.split('-')[0])
+    return protein_set  
+    
+def get_all_PDB_id():
+    protein_set =  get_uniq_pdb_protein_rna()
     fw = open('ncRNA-protein/all_seq.fa', 'w')
     for val in protein_set:
-        #all_pdb_str = all_pdb_str + ',' + val
-    
-    #pdb.set_trace()
-    #print all_pdb_str[1:]
         cli_str = 'curl -s "http://www.rcsb.org/pdb/rest/customReport?pdbids='+ val +'&customReportColumns=structureId,chainId,sequence&service=wsdisplay&format=csv" >ncRNA-protein/tmpseq.csv'        
         cli_fp = os.popen(cli_str, 'r')
         cli_fp.close()
@@ -312,11 +311,64 @@ def get_NPinter_interaction():
     
     #return RNA_set, protein_set
 def prepare_NPinter_feature():
+    print 'NPinter data'
     protein_fea_dict = read_protein_feature(protein_fea_file ='ncRNA-protein/NPinter_trainingSetFeatures.csv') 
     name_list = read_name_from_fasta('ncRNA-protein/NPinter_RNA_seq.fa')
     RNA_fea_dict = read_RNA_graph_feature(name_list, graph_file='ncRNA-protein/npinter_RNA_seq.gz.feature')
+    #pdb.set_trace()
+    train = []
+    label = []
+    posi_set = set()
+    pro_set = set()
+    with open('ncRNA-protein/NPInter10412_dataset.txt', 'r') as fp:
+        head  = True
+        for line in fp:
+            if head:
+                head = False
+                continue
+            RNA, RNA_len, protein, protein_len, org = line.rstrip().split('\t')
+            posi_set.add((RNA, protein))
+            pro_set.add(protein)
+            if RNA_fea_dict.has_key(RNA) and protein_fea_dict.has_key(protein):
+                label.append(1)
+                tmp_fea = RNA_fea_dict[RNA] + protein_fea_dict[protein]
+                train.append(tmp_fea)
+            else:
+                print RNA, protein
+    
+    
+    pro_list = list(pro_set)   
+    total_pro_len = len(pro_list)       
+    # get negative data
+    with open('ncRNA-protein/NPInter10412_dataset.txt', 'r') as fp:
+        head  = True
+        for line in fp:
+            if head:
+                head = False
+                continue
+            RNA, RNA_len, protein, protein_len, org = line.rstrip().split('\t')
+            for val in range(50):
+                random_choice = randint(0,total_pro_len)
+                select_pro = pro_list[random_choice]
+                selec_nega= (RNA, select_pro)
+                if selec_nega not in posi_set:
+                    posi_set.add(selec_nega)
+                    print selec_nega
+                    break
+                    
+            if RNA_fea_dict.has_key(RNA) and protein_fea_dict.has_key(select_pro):
+                label.append(0)
+                tmp_fea = RNA_fea_dict[RNA] + protein_fea_dict[select_pro]
+                train.append(tmp_fea)
+            else:
+                print RNA, protein    
+    #for key, val in RNA_fea_dict.iteritems():
+        
+            
+    return np.array(train), label
 
 def prepare_feature():
+    print 'RPI-Pred data'
     name_list = read_name_from_fasta('ncRNA-protein/RNA_seq.fa')
     RNA_fea_dict = read_RNA_graph_feature(name_list) 
     #
@@ -324,6 +376,18 @@ def prepare_feature():
     #pdb.set_trace()
     train = []
     label = []
+    with open('ncRNA-protein/PositivePairs.csv', 'r') as fp:
+        for line in fp:
+            if 'Protein ID' in line:
+                continue
+            pro1, pro2 = line.rstrip().split('\t')
+            
+            if protein_fea_dict.has_key(pro1) and RNA_fea_dict.has_key(pro2):
+                label.append(1)
+                tmp_fea = protein_fea_dict[pro1] + RNA_fea_dict[pro2]
+                train.append(tmp_fea)
+            else:
+                print pro1, pro2
     with open('ncRNA-protein/NegativePairs.csv', 'r') as fp:
         for line in fp:
             if 'Protein ID' in line:
@@ -337,18 +401,6 @@ def prepare_feature():
             else:
                 print pro1, pro2
 
-    with open('ncRNA-protein/PositivePairs.csv', 'r') as fp:
-        for line in fp:
-            if 'Protein ID' in line:
-                continue
-            pro1, pro2 = line.rstrip().split('\t')
-            
-            if protein_fea_dict.has_key(pro1) and RNA_fea_dict.has_key(pro2):
-                label.append(1)
-                tmp_fea = protein_fea_dict[pro1] + RNA_fea_dict[pro2]
-                train.append(tmp_fea)
-            else:
-                print pro1, pro2
     return np.array(train), label
 
 
@@ -384,6 +436,7 @@ def calculate_performace(test_num, pred_y,  labels):
     return acc, precision, sensitivity, specificity, MCC 
 
 def pca_reduce_dimension(group_data, n_components = 50):
+    print 'running PCA'
     pca = PCA(n_components=n_components)
     pca.fit(group_data)
     group_data = pca.transform(group_data)
@@ -419,8 +472,9 @@ def load_data(path, train=True):
 
 #def deep_classifier_keras(X, y, X_test):
 def deep_classifier_keras():
-    X, labels = prepare_feature() # load_data('train.csv', train=True)
-    X = pca_reduce_dimension(X)
+    X, labels = prepare_NPinter_feature()
+    #X, labels = prepare_feature() # load_data('train.csv', train=True)
+    #X = pca_reduce_dimension(X)
     print X.shape
     X, scaler = preprocess_data(X)
     y, encoder = preprocess_labels(labels)
@@ -434,13 +488,14 @@ def deep_classifier_keras():
     
     dims = X.shape[1]
     print(dims, 'dims')
-    for fold in range(10):
+    num_cross_val = 10
+    for fold in range(num_cross_val):
         train = []
         test = []
-        train = [x for i, x in enumerate(X) if i % 5 != fold]
-        test = [x for i, x in enumerate(X) if i % 5 == fold]
-        train_label = [x for i, x in enumerate(y) if i % 5 != fold]
-        test_label = [x for i, x in enumerate(y) if i % 5 == fold]
+        train = [x for i, x in enumerate(X) if i % num_cross_val != fold]
+        test = [x for i, x in enumerate(X) if i % num_cross_val == fold]
+        train_label = [x for i, x in enumerate(y) if i % num_cross_val != fold]
+        test_label = [x for i, x in enumerate(y) if i % num_cross_val == fold]
         print("Building model...")
         '''
         model = Sequential()
