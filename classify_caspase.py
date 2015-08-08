@@ -348,7 +348,7 @@ def prepare_NPinter_feature():
                 continue
             RNA, RNA_len, protein, protein_len, org = line.rstrip().split('\t')
             for val in range(50):
-                random_choice = randint(0,total_pro_len)
+                random_choice = randint(0,total_pro_len-1)
                 select_pro = pro_list[random_choice]
                 selec_nega= (RNA, select_pro)
                 if selec_nega not in posi_set:
