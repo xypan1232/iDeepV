@@ -1,4 +1,0 @@
-#perl fasta2shrep_gspan.pl –seq-graph-t -nostr -stdout -fasta RNA_seq.fa| gzip > RNA_seq.gz
-EDeN/EDeN -a FEATURE -i RNA_seq.gz
-
-python ProFET/ProFET/feat_extract/pipeline.py --trainingSetDir '/home/panxy/eclipse/rna-protein/ProFET/fastas/NPInter/' --trainFeatures True --resultsDir '/home/panxy/eclipse/rna-protein/ProFET/feature' --classType file
