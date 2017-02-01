@@ -1,6 +1,5 @@
 '''
-This script performs the task of finding a distributed representation 
-of amino acid using the continuous skip-gram model with 5 sample negative sampling
+This script performs learning the distributed representation for 6-mers using the continuous skip-gram model with 5 sample negative sampling
 '''
 
 from gensim.models import Word2Vec
