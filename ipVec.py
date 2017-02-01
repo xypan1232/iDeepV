@@ -114,13 +114,16 @@ def train_rnas(seq_file = 'data/utrs.fa', outfile= 'rnaEmbedding25.pickle'):
         #pdb.set_trace()
         print(len(sentences))
         model = None
-        model = Word2Vec(sentences, min_count=5, size=50, window=window, sg=1, iter = 10, batch_words=100)
+        model = Word2Vec(sentences, min_count=min_count, size=dim, window=window, sg=1, iter = 10, batch_words=100)
     
         vocab = list(model.vocab.keys())
         print vocab
-    
+    	fw = open('rna_dict', 'w')
+        for val in vocab:
+            fw.write(val + '\n')
+        fw.close()
         #print model.syn0
-        pdb.set_trace()
+        #pdb.set_trace()
         embeddingWeights = np.empty([len(vocab), dim])
     
         for i in range(len(vocab)):
