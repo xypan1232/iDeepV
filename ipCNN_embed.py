@@ -400,7 +400,7 @@ def get_embed_dim(embed_file):
     return embedded_dim, embedding_weights, n_aa_symbols
 
 
-def set_cnn_embed(n_aa_symbols, input_length, embedded_dim, embedding_weights, nb_filter = 32):
+def set_cnn_embed(n_aa_symbols, input_length, embedded_dim, embedding_weights, nb_filter = 16):
     #nb_filter = 64
     filter_length = 10
     dropout = 0.5
@@ -409,8 +409,8 @@ def set_cnn_embed(n_aa_symbols, input_length, embedded_dim, embedding_weights, n
     model.add(Embedding(input_dim=n_aa_symbols+1, output_dim = embedded_dim, weights=[embedding_weights], input_length=input_length, trainable = True))
     print 'after embed', model.output_shape
     model.add(Convolution1D(nb_filter, filter_length, border_mode='same', init='glorot_normal'))
-    model.add(MaxPooling1D(pool_length=3))
     model.add(LeakyReLU(.3))
+    model.add(MaxPooling1D(pool_length=3))
     model.add(Dropout(dropout))
     
     #model.add(Convolution1D(nb_filter, filter_length, border_mode='same', init='glorot_normal'))
@@ -419,7 +419,7 @@ def set_cnn_embed(n_aa_symbols, input_length, embedded_dim, embedding_weights, n
     
     return model
 
-def get_cnn_network_graphprot(rna_len = 501, nbfilter = 64):
+def get_cnn_network_graphprot(rna_len = 501, nb_filter = 16):
     #nbfilter = 32
     print 'configure cnn network'
     #embedded_dim, embedding_weights, n_aa_symbols = get_embed_dim('peptideEmbedding.pickle')
@@ -427,7 +427,7 @@ def get_cnn_network_graphprot(rna_len = 501, nbfilter = 64):
     #print n_aa_symbols
     embedded_rna_dim, embedding_rna_weights, n_nucl_symbols = get_embed_dim('rnaEmbedding.pickle')
     print 'symbol', n_nucl_symbols
-    model = set_cnn_embed(n_nucl_symbols, rna_len, embedded_rna_dim, embedding_rna_weights, nb_filter = 64)
+    model = set_cnn_embed(n_nucl_symbols, rna_len, embedded_rna_dim, embedding_rna_weights, nb_filter = nb_filter)
     #pdb.set_trace()
     #print 'pro cnn', seq_model.output_shape
     #print 'rna cnn', struct_model.output_shape
@@ -439,9 +439,9 @@ def get_cnn_network_graphprot(rna_len = 501, nbfilter = 64):
     model.add(Flatten())
     #model.add(Dense(nbfilter*(n_aa_symbols + n_nucl_symbols), activation='relu'))
     #model.add(Dropout(0.50))
-    model.add(Dense(nbfilter*50, activation='relu')) 
+    model.add(Dense(nb_filter*50, activation='relu')) 
     model.add(Dropout(0.50))
-    model.add(Dense(nbfilter*5, activation='relu')) 
+    model.add(Dense(nb_filter*10, activation='relu')) 
     model.add(Dropout(0.50))
     #model.add(BatchNormalization(mode=2))
     print model.output_shape
@@ -821,15 +821,15 @@ def load_graphprot_data(protein, train = True, path = '/home/panxy/eclipse/rna-p
 
 def load_predict_graphprot_data():
     data_dir = '/home/panxy/eclipse/rna-protein/data/GraphProt_CLIP_sequences/'
-    fw = open('result_file_graphprot_size10', 'w')
-    seq_hid =64
+    fw = open('result_file_graphprot_size_10', 'w')
+    seq_hid = 16
     for protein in os.listdir(data_dir):
 
         protein = protein.split('.')[0]
         print protein
         fw.write(protein + '\t')
         data, label = loaddata_graphprot(protein)
-        seq_net = get_cnn_network_graphprot(rna_len = 496, nbfilter = seq_hid)
+        seq_net = get_cnn_network_graphprot(rna_len = 496, nb_filter = seq_hid)
         #pdb.set_trace()
         #true_y = test_data["Y"].copy()
         training_indice, training_label, val_indice, val_label = split_training_validation(label)
@@ -842,13 +842,17 @@ def load_predict_graphprot_data():
         print 'predicting'    
         test_data, true_y = loaddata_graphprot(protein, train = False)
         #seq_test = test_data["seq"]
+        model_name = 'model/' + protein +'.pickle'
         seq_auc, seq_predict = calculate_auc(seq_net, seq_hid, cnn_train, test_data, true_y, y, validation = cnn_validation,
-                                              val_y = val_y)
-        seq_train = []
-        seq_test = []
+                                              val_y = val_y, model_name = model_name)
 
         print str(seq_auc)
-        fw.write( str(seq_auc) +'\n')        
+        fw.write( str(seq_auc) +'\n')
+        mylabel = "\t".join(map(str, true_y))
+        myprob = "\t".join(map(str, seq_predict))  
+        fw.write(mylabel + '\n')
+        fw.write(myprob + '\n')
+         
     fw.close()
 
 def loaddata_graphprot(protein, train = True, ushuffle = True):
@@ -886,13 +890,14 @@ def load_data():
     return data, rna_nax_len, pro_nax_len
 
     
-def calculate_auc(net, hid, train, test, true_y, train_y, validation = None, val_y = None):
+def calculate_auc(net, hid, train, test, true_y, train_y, validation = None, val_y = None, model_name = None):
     predict, model = run_network(net, hid, train, test, train_y, validation, val_y)
     #pdb.set_trace()
     auc = roc_auc_score(true_y, predict)
         
     print "Test AUC: ", auc
-    
+    with open(model_name, 'w') as f:
+        pickle.dump(model, f)
     #model.save('my_model.h5')  # creates a HDF5 file 'my_model.h5'
     #del model
 
@@ -904,8 +909,8 @@ def run_RNA_protein(fw = None):
     rna_nax_len = rna_nax_len -5
     print len(data), rna_nax_len, pro_nax_len
     print 'finishing load data'
-    seq_hid =32
-    protein_hid = 32
+    seq_hid =16
+    protein_hid = 16
     #pdb.set_trace()   
     
     '''
