@@ -104,17 +104,6 @@ def train_rnas(seq_file = 'data/utrs.fa', outfile= 'rnaEmbedding25.pickle'):
         seq_dict = read_fasta_file(seq_file)
         
         #text = seq_dict.values()
-        '''df = pd.read_csv("Proteins.txt", delim_whitespace=True, header=0)
-        df.columns = ['sequence','HLA','target'] 
-    
-        # remove any peptide with  unknown variables
-        df = df[df.sequence.str.contains('X') == False]
-        df = df[df.sequence.str.contains('B') == False]
-    
-        df = df.sample(frac=1)
-        
-        text = list(df.sequence)
-        '''
         tris = get_6_trids()
         sentences = []
         for seq in seq_dict.values():
