@@ -486,7 +486,7 @@ def run_network(model, total_hid, training, testing, y, validation, val_y):
     #checkpointer = ModelCheckpoint(filepath="models/bestmodel.hdf5", verbose=0, save_best_only=True)
     earlystopper = EarlyStopping(monitor='val_loss', patience=5, verbose=0)
 
-    model.fit(training, y, batch_size=50, nb_epoch=10, verbose=0, validation_data=(validation, val_y), callbacks=[earlystopper])
+    model.fit(training, y, batch_size=100, nb_epoch=10, verbose=0, validation_data=(validation, val_y), callbacks=[earlystopper])
     
     #pdb.set_trace()
     #get_motif(model, testing, protein, y, index = 0, dir1 = 'seq_cnn/')
@@ -896,8 +896,8 @@ def calculate_auc(net, hid, train, test, true_y, train_y, validation = None, val
     auc = roc_auc_score(true_y, predict)
         
     print "Test AUC: ", auc
-    with open(model_name, 'w') as f:
-        pickle.dump(model, f)
+    #with open(model_name, 'w') as f:
+    #    pickle.dump(model, f)
     #model.save('my_model.h5')  # creates a HDF5 file 'my_model.h5'
     #del model
 
