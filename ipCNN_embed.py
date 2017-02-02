@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import pdb
 import pickle
 from collections import OrderedDict
-
+import gzip
 from sklearn.svm import LinearSVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
@@ -408,37 +408,22 @@ def set_cnn_embed(n_aa_symbols, input_length, embedded_dim, embedding_weights, n
     #pdb.set_trace()
     model.add(Embedding(input_dim=n_aa_symbols+1, output_dim = embedded_dim, weights=[embedding_weights], input_length=input_length, trainable = True))
     print 'after embed', model.output_shape
-    model.add(Convolution1D(nb_filter, filter_length, border_mode='same', init='glorot_normal'))
-    model.add(LeakyReLU(.3))
+    model.add(Convolution1D(nb_filter, filter_length, border_mode='valid', init='glorot_normal', subsample_length=1))
+    model.add(Activation('relu'))
     model.add(MaxPooling1D(pool_length=3))
     model.add(Dropout(dropout))
-    
-    #model.add(Convolution1D(nb_filter, filter_length, border_mode='same', init='glorot_normal'))
-    #model.add(LeakyReLU(.3))
-    #model.add(Dropout(dropout))
     
     return model
 
 def get_cnn_network_graphprot(rna_len = 501, nb_filter = 16):
-    #nbfilter = 32
     print 'configure cnn network'
-    #embedded_dim, embedding_weights, n_aa_symbols = get_embed_dim('peptideEmbedding.pickle')
-    #seq_model = set_cnn_embed(n_aa_symbols, pro_len, embedded_dim, embedding_weights)
-    #print n_aa_symbols
     embedded_rna_dim, embedding_rna_weights, n_nucl_symbols = get_embed_dim('rnaEmbedding.pickle')
     print 'symbol', n_nucl_symbols
     model = set_cnn_embed(n_nucl_symbols, rna_len, embedded_rna_dim, embedding_rna_weights, nb_filter = nb_filter)
-    #pdb.set_trace()
-    #print 'pro cnn', seq_model.output_shape
-    #print 'rna cnn', struct_model.output_shape
-    #model = Sequential()
-    #model.add(Merge([seq_model, struct_model], mode='concat', concat_axis=1))
     
     #model.add(Bidirectional(LSTM(2*nbfilter)))
     #model.add(Dropout(0.10))
     model.add(Flatten())
-    #model.add(Dense(nbfilter*(n_aa_symbols + n_nucl_symbols), activation='relu'))
-    #model.add(Dropout(0.50))
     model.add(Dense(nb_filter*50, activation='relu')) 
     model.add(Dropout(0.50))
     model.add(Dense(nb_filter*10, activation='relu')) 
@@ -449,7 +434,7 @@ def get_cnn_network_graphprot(rna_len = 501, nb_filter = 16):
     return model
 
 def get_cnn_network_embed(rna_len, pro_len):
-    nbfilter = 32
+    nbfilter = 16
     print 'configure cnn network'
     embedded_dim, embedding_weights, n_aa_symbols = get_embed_dim('peptideEmbedding.pickle')
     seq_model = set_cnn_embed(n_aa_symbols, pro_len, embedded_dim, embedding_weights)
@@ -674,7 +659,7 @@ aa_dict = OrderedDict([
 
 def read_rna_dict():
     odr_dict = {}
-    with open('rna_nul_dict', 'r') as fp:
+    with open('rna_dict', 'r') as fp:
         for line in fp:
             values = line.rstrip().split(',')
             for ind, val in enumerate(values):
@@ -694,36 +679,44 @@ def aa_integerMapping(peptideSeq):
 
     return np.asarray(peptideArray)
 
-#featureMatrix = np.empty((0, peptide_n_mer), int)
-#for num in range(len(seqMatrix)):
-#  featureMatrix = np.append(featureMatrix, [aa_integerMapping(seqMatrix.iloc[num])], axis=0)
+def get_rna_seqs_rec(rnas, rna_seq_dict, rna_nax_len, trids, nn_dict):
 
+    label = []
+    rna_array = []
+    for rna in rnas:
+        rna_seq = rna_seq_dict[rna]
+        rna_seq = rna_seq.replace('T', 'U')
+        rna_seq_pad = padding_sequence(rna_seq, max_len = rna_nax_len, repkey = 'N')
+        tri_feature = get_6_nucleotide_composition(trids, rna_seq_pad, nn_dict)
+        rna_array.append(tri_feature)
+        label.append(1)
+        if ushuffle:
+            shuffle_rna_seq = local_ushuffle(rna_seq)
+            shuffle_rna_seq_pad = padding_sequence(shuffle_rna_seq, max_len = rna_nax_len, repkey = 'N')
+            #onehot_rna = get_RNA_concolutional_array(shuffle_rna_seq_pad)
+            tri_feature_shu = get_6_nucleotide_composition(trids, shuffle_rna_seq_pad, nn_dict)
+            label.append(0)
+            rna_array.append(tri_feature_shu)
+    
+    return np.array(rna_array), np.array(label)
   
-def loaddata(datadir = 'data/', ushuffle = True):
-    #pair_file = datadir + 'interactions_HT.txt'
+def run_rnacomend(datadir = 'data/', ushuffle = True):
+    fw = open('result_file_ranrecom', 'w')
     pair_file = datadir + 'test_part2'
-    rbp_seq_file = datadir + 'rbps_HT.fa'
+    #rbp_seq_file = datadir + 'rbps_HT.fa'
     rna_seq_file = datadir + 'utrs.fa'
-    pairs = []
-    rbp_seq_dict = read_fasta_file(rbp_seq_file)
-    pro_len = [] #1101
-    for val in rbp_seq_dict.values():
-        pro_len.append(len(val))
-    pro_len.sort()
-    pro_nax_len = pro_len[int(len(pro_len)*0.9)]    
+     
     rna_seq_dict = read_fasta_file(rna_seq_file)
     rna_len = [] # 2695
     for val in rna_seq_dict.values():
         rna_len.append(len(val))
     
     rna_len.sort()
-    rna_nax_len = rna_len[int(len(rna_len)*0.9)] 
-    #groups = ['AGV', 'ILFP', 'YMTS', 'HNQW', 'RK', 'DE', 'C']
-    #group_dict = TransDict_from_list(groups)
-    #pdb.set_trace()
+    rna_nax_len = rna_len[int(len(rna_len)*0.8)] 
+    seq_hid = 16
     label = []
     rna_array = []
-    protein_array = []
+    protein_pair = {}
     trids = get_6_trids()
     nn_dict = read_rna_dict()
     with open(pair_file, 'r') as fp:
@@ -731,32 +724,41 @@ def loaddata(datadir = 'data/', ushuffle = True):
             values = line.rstrip().split()
             protein = values[0]
             rna = values[1]
-            protein_seq = rbp_seq_dict[protein]
-            #protein_seq = translate_sequence (protein_seq, group_dict)
-            protein_seq = padding_sequence(protein_seq, max_len = pro_nax_len, repkey = 'B')
-            #protein_seq = list(protein_seq)
-            #onehot_pro = get_protein_concolutional_array(protein_seq)
-            protein_array.append(aa_integerMapping(protein_seq))
-            #pdb.set_trace()
-            rna_seq = rna_seq_dict[rna]
-            rna_seq = rna_seq.replace('T', 'U')
-            rna_seq_pad = padding_sequence(rna_seq, max_len = rna_nax_len, repkey = 'N')
-            #onehot_rna = get_RNA_concolutional_array(rna_seq_pad)
-            tri_feature = get_6_nucleotide_composition(trids, rna_seq_pad, nn_dict)
-            rna_array.append(tri_feature)
-            label.append(1)
-            if ushuffle:
-                protein_array.append(aa_integerMapping(protein_seq))
-                shuffle_rna_seq = local_ushuffle(rna_seq)
-                shuffle_rna_seq_pad = padding_sequence(shuffle_rna_seq, max_len = rna_nax_len, repkey = 'N')
-                #onehot_rna = get_RNA_concolutional_array(shuffle_rna_seq_pad)
-                tri_feature_shu = get_6_nucleotide_composition(trids, shuffle_rna_seq_pad, nn_dict)
-                rna_array.append(tri_feature_shu)
-                #rna_array.append(list(shuffle_rna_seq_pad))
-                label.append(0)
+            protein_pair.setdefault(protein, []).append(rna)
     
-    return np.array(protein_array), np.array(rna_array), np.array(label), rna_nax_len, pro_nax_len
+    for protein, rnas in protein_pair.iteritems():
+        print protein
+        fw.write(protein + '\t')
+        data, label = get_rna_seqs_rec(rnas, rna_seq_dict, rna_nax_len, trids, nn_dict)
+        seq_net = get_cnn_network_graphprot(rna_len = rna_nax_len, nb_filter = seq_hid)
 
+        training_val_indice, train_val_label, test_indice, test_label = split_training_validation(label)
+        train_val = data[training_val_indice]
+        train_val_label = label[training_val_indice]  
+        test_data = data[test_indice]
+        test_label = label[test_indice]
+        
+        training_indice, training_label, test_indice, test_label = split_training_validation(train_val_label)
+        cnn_train = train_val[training_indice]
+        training_label = train_val_label[training_indice]  
+        cnn_validation = train_val[test_indice]
+        validation_label = train_val_label[test_indice]
+                 
+        y, encoder = preprocess_labels(training_label)
+        val_y, encoder = preprocess_labels(validation_label, encoder = encoder) 
+        print 'predicting'    
+        model_name = 'model/' + protein +'.pickle'
+        seq_auc, seq_predict = calculate_auc(seq_net, seq_hid, cnn_train, test_data, test_label, y, validation = cnn_validation,
+                                              val_y = val_y, model_name = model_name)
+        print str(seq_auc)
+        fw.write( str(seq_auc) +'\n')
+        mylabel = "\t".join(map(str, test_label))
+        myprob = "\t".join(map(str, seq_predict))  
+        fw.write(mylabel + '\n')
+        fw.write(myprob + '\n')
+        
+    fw.close()
+    
 def read_seq_graphprot(seq_file, label = 1):
     seq_list = []
     labels = []
@@ -767,20 +769,6 @@ def read_seq_graphprot(seq_file, label = 1):
                 name = line[1:-1]
             else:
                 seq = line[:-1].upper()
-                '''
-                seq_len = len(seq)
-                if seq_len < min_len:
-                    continue
-                
-                gap_ind = (seq_len- min_len)/2 
-                new_seq = seq[gap_ind:len(seq) - gap_ind]
-                if len(new_seq) > min_len:
-                    new_seq = new_seq[:min_len]
-                if len(new_seq) < min_len:
-                    pdb.set_trace()
-                '''
-                #pdb.set_trace()
-                #seq_array = get_RNA_seq_concolutional_array(new_seq)
                 seq_list.append(seq)
                 labels.append(label)
 
@@ -809,15 +797,28 @@ def load_graphprot_data(protein, train = True, path = '/home/panxy/eclipse/rna-p
             #pdb.set_trace()
             mix_label = mix_label + labels
             mix_seq = mix_seq + seqs
-            #strucures, labels = read_structure_graphprot(os.path.join(path, tmpfile), label = label, min_len = min_len)
-            #mix_structure = mix_structure + strucures
-    #tmp.append(np.array(mix_seq))
-    #tmp.append(np.array(mix_structure))
     
     data["seq"] = mix_seq
     data["Y"] = np.array(mix_label)
     
     return data
+
+def loaddata_graphprot(protein, train = True, ushuffle = True):
+    #pdb.set_trace()
+    data = load_graphprot_data(protein, train = train)
+    label = data["Y"]
+    rna_array = []
+    trids = get_6_trids()
+    nn_dict = read_rna_dict()
+    for rna_seq in data["seq"]:
+        #rna_seq = rna_seq_dict[rna]
+        rna_seq = rna_seq.replace('T', 'U')
+        rna_seq_pad = padding_sequence(rna_seq, max_len = 501, repkey = 'N')
+        #onehot_rna = get_RNA_concolutional_array(rna_seq_pad)
+        tri_feature = get_6_nucleotide_composition(trids, rna_seq_pad, nn_dict)
+        rna_array.append(tri_feature)
+    
+    return np.array(rna_array), label
 
 def load_predict_graphprot_data():
     data_dir = '/home/panxy/eclipse/rna-protein/data/GraphProt_CLIP_sequences/'
@@ -855,40 +856,6 @@ def load_predict_graphprot_data():
          
     fw.close()
 
-def loaddata_graphprot(protein, train = True, ushuffle = True):
-    #pdb.set_trace()
-    data = load_graphprot_data(protein, train = train)
-    label = data["Y"]
-    rna_array = []
-    protein_array = []
-    trids = get_6_trids()
-    nn_dict = read_rna_dict()
-    for rna_seq in data["seq"]:
-        #rna_seq = rna_seq_dict[rna]
-        rna_seq = rna_seq.replace('T', 'U')
-        rna_seq_pad = padding_sequence(rna_seq, max_len = 501, repkey = 'N')
-        #onehot_rna = get_RNA_concolutional_array(rna_seq_pad)
-        tri_feature = get_6_nucleotide_composition(trids, rna_seq_pad, nn_dict)
-        rna_array.append(tri_feature)
-    
-    return np.array(rna_array), label
-
-def load_data():
-    data = dict()
-    tmp = []
-    rna_array, protein_array, label, rna_nax_len, pro_nax_len = loaddata()
-    #print rna_array.shape, protein_array.shape
-    tmp.append(rna_array)
-    #seq_onehot, structure = read_structure(os.path.join(path, 'sequences.fa.gz'), path)
-    tmp.append(protein_array)
-    data["seq"] = tmp
-    #data["structure"] = structure
-    
-    
-    data["Y"] = label
-    
-    return data, rna_nax_len, pro_nax_len
-
     
 def calculate_auc(net, hid, train, test, true_y, train_y, validation = None, val_y = None, model_name = None):
     predict, model = run_network(net, hid, train, test, train_y, validation, val_y)
@@ -896,92 +863,83 @@ def calculate_auc(net, hid, train, test, true_y, train_y, validation = None, val
     auc = roc_auc_score(true_y, predict)
         
     print "Test AUC: ", auc
-    #with open(model_name, 'w') as f:
-    #    pickle.dump(model, f)
-    #model.save('my_model.h5')  # creates a HDF5 file 'my_model.h5'
-    #del model
 
-    return auc, predict    
-
-
-def run_RNA_protein(fw = None):
-    data, rna_nax_len, pro_nax_len = load_data()
-    rna_nax_len = rna_nax_len -5
-    print len(data), rna_nax_len, pro_nax_len
-    print 'finishing load data'
-    seq_hid =16
-    protein_hid = 16
-    #pdb.set_trace()   
+    return auc, predict 
+   
+def read_seq(seq_file, trids, nn_dict):
+    seq_list = []
+    label_list = []
+    seq = ''
+    with gzip.open(seq_file, 'r') as fp:
+        for line in fp:
+            if line[0] == '>':
+                name = line[1:-1]
+                posi_label = name.split(';')[-1]
+                label = posi_label.split(':')[-1]
+                label_list.append(int(label))
+                if len(seq):
+                    #seq_array = get_RNA_seq_concolutional_array(seq)
+                    seq_list.append(seq)                    
+                seq = ''
+            else:
+                seq = seq + line[:-1]
+        if len(seq):
+            seq_list.append(seq) 
     
-    '''
+    rna_array = []
+    for rna_seq in seq_list:
+        rna_seq = rna_seq.replace('T', 'U')
+        rna_seq_pad = padding_sequence(rna_seq, max_len = 101, repkey = 'N')
+        tri_feature = get_6_nucleotide_composition(trids, rna_seq_pad, nn_dict)
+        rna_array.append(tri_feature)
+           
+    return np.array(rna_array), np.array(label_list)
+
+def run_rbp31():
+    data_dir = '/home/panxy/eclipse/ideep/iDeep/datasets/clip'
+    rna_max_len = 101
     seq_hid = 16
-    struct_hid = 16
-    #pdb.set_trace()
-    train_Y = training_data["Y"]
-    print len(train_Y)
-    #pdb.set_trace()
-    training_indice, training_label, validation_indice, validation_label = split_training_validation(train_Y)
-    '''
-    #pdb.set_trace()
-    training_indice, training_label, test_indice, test_label = split_training_validation(data["Y"])
-    training_data = dict()
-    test_data = dict()
-    #for key in data.keys():
-    training_data["seq"] = []
-    test_data["seq"] = []
-    training_data["seq"].append(data["seq"][0][training_indice])
-    training_data["seq"].append(data["seq"][1][training_indice])
-    test_data["seq"].append(data["seq"][0][test_indice])
-    test_data["seq"].append(data["seq"][1][test_indice])
-    training_data["Y"] = data["Y"][training_indice] 
-    test_data["Y"] = data["Y"][test_indice]
-    #true_y = test_data["Y"].copy()    
-    training_indice, training_label, validation_indice, validation_label = split_training_validation(training_data["Y"])
-    #pdb.set_trace()
-    cnn_train  = []
-    cnn_validation = []
-    seq_data = training_data["seq"][0]
-    print seq_data.shape
-    #pdb.set_trace()
-    seq_train = seq_data[training_indice]
-    seq_validation = seq_data[validation_indice] 
-    struct_data = training_data["seq"][1]
-    print struct_data.shape
-    struct_train = struct_data[training_indice]
-    struct_validation = struct_data[validation_indice] 
-    cnn_train.append(seq_train)
-    cnn_train.append(struct_train)
-    cnn_validation.append(seq_validation)
-    cnn_validation.append(struct_validation)        
-    seq_net =  get_cnn_network_embed(rna_nax_len, pro_nax_len)
-    seq_data = []
-            
-    y, encoder = preprocess_labels(training_label)
-    val_y, encoder = preprocess_labels(validation_label, encoder = encoder) 
-    
-    training_data.clear()
+    trids = get_6_trids()
+    nn_dict = read_rna_dict()
+    fw = open('result_file_rbp31', 'w')
+    for protein in os.listdir(data_dir):
+        print protein
+        fw.write(protein + '\t')
+        path =  "/home/panxy/eclipse/ideep/iDeep/datasets/clip/%s/30000/training_sample_0" % protein
+        data, label = read_seq(os.path.join(path, 'sequences.fa.gz'), trids, nn_dict)
+        seq_net = get_cnn_network_graphprot(rna_len = rna_max_len, nb_filter = seq_hid)
+        
+        training_indice, training_label, val_indice, val_label = split_training_validation(label)
+        cnn_train = data[training_indice]
+        training_label = label[training_indice]
+        cnn_validation = data[val_indice]
+        validation_label = label[val_indice]        
+        y, encoder = preprocess_labels(training_label)
+        val_y, encoder = preprocess_labels(validation_label, encoder = encoder) 
+        
+        print 'testing'    
+        path =  "/home/panxy/eclipse/ideep/iDeep/datasets/clip/%s/30000/test_sample_0" % protein
+        test_data, true_y = read_seq(os.path.join(path, 'sequences.fa.gz'), trids, nn_dict)
+        model_name = 'model/' + protein +'.pickle'
+        seq_auc, seq_predict = calculate_auc(seq_net, seq_hid, cnn_train, test_data, true_y, y, validation = cnn_validation,
+                                              val_y = val_y, model_name = model_name)
 
-    #pdb.set_trace()
-    
-    true_y = test_data["Y"].copy()
-    
-    print 'predicting'    
-
-    seq_test = test_data["seq"]
-    seq_auc, seq_predict = calculate_auc(seq_net, seq_hid + protein_hid, cnn_train, seq_test, true_y, y, validation = cnn_validation,
-                                          val_y = val_y)
-    seq_train = []
-    seq_test = []
+        print str(seq_auc)
+        fw.write( str(seq_auc) +'\n')
+        mylabel = "\t".join(map(str, true_y))
+        myprob = "\t".join(map(str, seq_predict))  
+        fw.write(mylabel + '\n')
+        fw.write(myprob + '\n')
          
-        
-        
-    print str(seq_auc)
-    fw.write( str(seq_auc) +'\n')
+    fw.close()        
 
-    mylabel = "\t".join(map(str, true_y))
-    myprob = "\t".join(map(str, seq_predict))  
-    fw.write(mylabel + '\n')
-    fw.write(myprob + '\n')
+def run_ideepv(dataset = "RBP-24"):
+    if dataset == "RBP-24":
+        load_predict_graphprot_data()
+    if dataset == "RBP-67":
+        run_rnacomend()
+    if dataset == "RBP-31":
+        run_rbp31()
     
 if __name__ == "__main__":
     #get_all_rpbs()
