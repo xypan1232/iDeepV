@@ -408,8 +408,8 @@ def set_cnn_embed(n_aa_symbols, input_length, embedded_dim, embedding_weights, n
     #pdb.set_trace()
     model.add(Embedding(input_dim=n_aa_symbols+1, output_dim = embedded_dim, weights=[embedding_weights], input_length=input_length, trainable = True))
     print 'after embed', model.output_shape
-    model.add(Convolution1D(nb_filter, filter_length, border_mode='valid', init='glorot_normal', subsample_length=1))
-    model.add(Activation('relu'))
+    model.add(Convolution1D(nb_filter, filter_length, border_mode='valid', init='glorot_normal'))
+    model.add(Activation(LeakyReLU(.3)))
     model.add(MaxPooling1D(pool_length=3))
     model.add(Dropout(dropout))
     
@@ -417,7 +417,7 @@ def set_cnn_embed(n_aa_symbols, input_length, embedded_dim, embedding_weights, n
 
 def get_cnn_network_graphprot(rna_len = 501, nb_filter = 16):
     print 'configure cnn network'
-    embedded_rna_dim, embedding_rna_weights, n_nucl_symbols = get_embed_dim('rnaEmbedding.pickle')
+    embedded_rna_dim, embedding_rna_weights, n_nucl_symbols = get_embed_dim('rnaEmbedding25.pickle')
     print 'symbol', n_nucl_symbols
     model = set_cnn_embed(n_nucl_symbols, rna_len, embedded_rna_dim, embedding_rna_weights, nb_filter = nb_filter)
     
@@ -426,9 +426,8 @@ def get_cnn_network_graphprot(rna_len = 501, nb_filter = 16):
     model.add(Flatten())
     model.add(Dense(nb_filter*50, activation='relu')) 
     model.add(Dropout(0.50))
-    model.add(Dense(nb_filter*10, activation='relu')) 
+    model.add(Dense(nb_filter*10, activation='sigmoid')) 
     model.add(Dropout(0.50))
-    #model.add(BatchNormalization(mode=2))
     print model.output_shape
     
     return model
@@ -436,7 +435,7 @@ def get_cnn_network_graphprot(rna_len = 501, nb_filter = 16):
 def get_cnn_network_embed(rna_len, pro_len):
     nbfilter = 16
     print 'configure cnn network'
-    embedded_dim, embedding_weights, n_aa_symbols = get_embed_dim('peptideEmbedding.pickle')
+    embedded_dim, embedding_weights, n_aa_symbols = get_embed_dim('peptideEmbedding25.pickle')
     seq_model = set_cnn_embed(n_aa_symbols, pro_len, embedded_dim, embedding_weights)
     print n_aa_symbols
     embedded_rna_dim, embedding_rna_weights, n_nucl_symbols = get_embed_dim('rnaEmbedding.pickle')
@@ -461,11 +460,11 @@ def get_cnn_network_embed(rna_len, pro_len):
     return model
         
 def run_network(model, total_hid, training, testing, y, validation, val_y):
-    model.add(Dense(2, input_shape=(total_hid,)))
+    model.add(Dense(2))
     model.add(Activation('softmax'))
     
-    sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)
-    model.compile(loss='categorical_crossentropy', optimizer=sgd)#'rmsprop')
+    #sgd = SGD(lr=0.01, decay=1e-6, momentum=0.9, nesterov=True)sgd)#'
+    model.compile(loss='categorical_crossentropy', optimizer='rmsprop')
     #pdb.set_trace()
     print 'model training'
     #checkpointer = ModelCheckpoint(filepath="models/bestmodel.hdf5", verbose=0, save_best_only=True)
@@ -701,7 +700,7 @@ def get_rna_seqs_rec(rnas, rna_seq_dict, rna_nax_len, trids, nn_dict):
     return np.array(rna_array), np.array(label)
   
 def run_rnacomend(datadir = 'data/', ushuffle = True):
-    fw = open('result_file_ranrecom', 'w')
+    fw = open('result_file_rbp67', 'w')
     pair_file = datadir + 'test_part2'
     #rbp_seq_file = datadir + 'rbps_HT.fa'
     rna_seq_file = datadir + 'utrs.fa'
@@ -730,7 +729,7 @@ def run_rnacomend(datadir = 'data/', ushuffle = True):
         print protein
         fw.write(protein + '\t')
         data, label = get_rna_seqs_rec(rnas, rna_seq_dict, rna_nax_len, trids, nn_dict)
-        seq_net = get_cnn_network_graphprot(rna_len = rna_nax_len, nb_filter = seq_hid)
+        seq_net = get_cnn_network_graphprot(rna_len = rna_nax_len - 5, nb_filter = seq_hid)
 
         training_val_indice, train_val_label, test_indice, test_label = split_training_validation(label)
         train_val = data[training_val_indice]
@@ -822,11 +821,16 @@ def loaddata_graphprot(protein, train = True, ushuffle = True):
 
 def load_predict_graphprot_data():
     data_dir = '/home/panxy/eclipse/rna-protein/data/GraphProt_CLIP_sequences/'
-    fw = open('result_file_graphprot_size_10', 'w')
+    fw = open('result_file_graphprot_new', 'w')
     seq_hid = 16
+    finish_pro = set(['CLIPSEQ_SFRS1', 'CLIPSEQ_ELAVL1', 'ICLIP_TIA1', 'PARCLIP_TAF15', 'ICLIP_HNRNPC', 'ICLIP_TIAL1', 'PARCLIP_HUR', 'PARCLIP_ELAVL1',
+                      'PARCLIP_MOV10_Sievers', 'PARCLIP_PUM2', 'CLIPSEQ_AGO2', 'PARCLIP_IGF2BP123'])
     for protein in os.listdir(data_dir):
-
+        
         protein = protein.split('.')[0]
+        if protein in finish_pro:
+            continue
+        finish_pro.add(protein)
         print protein
         fw.write(protein + '\t')
         data, label = loaddata_graphprot(protein)
@@ -907,7 +911,7 @@ def run_rbp31():
         fw.write(protein + '\t')
         path =  "/home/panxy/eclipse/ideep/iDeep/datasets/clip/%s/30000/training_sample_0" % protein
         data, label = read_seq(os.path.join(path, 'sequences.fa.gz'), trids, nn_dict)
-        seq_net = get_cnn_network_graphprot(rna_len = rna_max_len, nb_filter = seq_hid)
+        seq_net = get_cnn_network_graphprot(rna_len = rna_max_len - 5, nb_filter = seq_hid)
         
         training_indice, training_label, val_indice, val_label = split_training_validation(label)
         cnn_train = data[training_indice]
