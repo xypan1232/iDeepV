@@ -940,18 +940,10 @@ def run_rbp31():
 def run_ideepv(dataset = "RBP-24"):
     if dataset == "RBP-24":
         load_predict_graphprot_data()
-    if dataset == "RBP-67":
-        run_rnacomend()
     if dataset == "RBP-31":
         run_rbp31()
     
 if __name__ == "__main__":
-    #get_all_rpbs()
-    run_rbp31()
-    #run_RNA_protein()
-    #load_predict_graphprot_data()
-    #loaddata()   
-    #or_dict = read_rna_dict()
-    #pdb.set_trace()
+    run_ideepv()
     
     
