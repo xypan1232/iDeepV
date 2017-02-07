@@ -764,14 +764,9 @@ def load_predict_graphprot_data():
     data_dir = '/home/panxy/eclipse/rna-protein/data/GraphProt_CLIP_sequences/'
     fw = open('result_file_graphprot_new', 'w')
     seq_hid = 16
-    finish_pro = set(['CLIPSEQ_SFRS1', 'CLIPSEQ_ELAVL1', 'ICLIP_TIA1', 'PARCLIP_TAF15', 'ICLIP_HNRNPC', 'ICLIP_TIAL1', 'PARCLIP_HUR', 'PARCLIP_ELAVL1',
-                      'PARCLIP_MOV10_Sievers', 'PARCLIP_PUM2', 'CLIPSEQ_AGO2', 'PARCLIP_IGF2BP123'])
     for protein in os.listdir(data_dir):
         
         protein = protein.split('.')[0]
-        if protein in finish_pro:
-            continue
-        finish_pro.add(protein)
         print protein
         fw.write(protein + '\t')
         data, label = loaddata_graphprot(protein)
