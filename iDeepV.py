@@ -909,7 +909,7 @@ def run_rbp31():
     for protein in os.listdir(data_dir):
         print protein
         fw.write(protein + '\t')
-        path =  "/home/panxy/eclipse/ideep/iDeep/datasets/clip/%s/30000/training_sample_0" % protein
+        path =  "/home/panxy/eclipse/ideep/ideep/datasets/clip/%s/30000/training_sample_0" % protein
         data, label = read_seq(os.path.join(path, 'sequences.fa.gz'), trids, nn_dict)
         seq_net = get_cnn_network_graphprot(rna_len = rna_max_len - 5, nb_filter = seq_hid)
         
@@ -922,7 +922,7 @@ def run_rbp31():
         val_y, encoder = preprocess_labels(validation_label, encoder = encoder) 
         
         print 'testing'    
-        path =  "/home/panxy/eclipse/ideep/iDeep/datasets/clip/%s/30000/test_sample_0" % protein
+        path =  "/home/panxy/eclipse/ideep/ideep/datasets/clip/%s/30000/test_sample_0" % protein
         test_data, true_y = read_seq(os.path.join(path, 'sequences.fa.gz'), trids, nn_dict)
         model_name = 'model/' + protein +'.pickle'
         seq_auc, seq_predict = calculate_auc(seq_net, seq_hid, cnn_train, test_data, true_y, y, validation = cnn_validation,
@@ -947,8 +947,9 @@ def run_ideepv(dataset = "RBP-24"):
     
 if __name__ == "__main__":
     #get_all_rpbs()
+    run_rbp31()
     #run_RNA_protein()
-    load_predict_graphprot_data()
+    #load_predict_graphprot_data()
     #loaddata()   
     #or_dict = read_rna_dict()
     #pdb.set_trace()

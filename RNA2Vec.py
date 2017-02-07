@@ -34,6 +34,29 @@ def get_6_trids():
         nucle_com.append(ch0 + ch1 + ch2 + ch3 + ch4 + ch5)
     return  nucle_com   
 
+def get_7_trids():
+    nucle_com = []
+    chars = ['A', 'C', 'G', 'U']
+    base=len(chars)
+    end=len(chars)**7
+    for i in range(0,end):
+        n=i
+        ch0=chars[n%base]
+        n=n/base
+        ch1=chars[n%base]
+        n=n/base
+        ch2=chars[n%base]
+        n=n/base
+        ch3=chars[n%base]
+        n=n/base
+        ch4=chars[n%base]
+        n=n/base
+        ch5=chars[n%base]
+        n=n/base
+        ch6=chars[n%base]
+        nucle_com.append(ch0 + ch1 + ch2 + ch3 + ch4 + ch5 + ch6)
+    return  nucle_com   
+
 def get_4_nucleotide_composition(tris, seq):
     seq_len = len(seq)
     tri_feature = []
@@ -93,7 +116,7 @@ def read_fasta_file(fasta_file):
     
     return seq_dict
 
-def train_rnas(seq_file = 'data/utrs.fa', outfile= 'rnaEmbedding25.pickle'):
+def train_rnas(seq_file = 'data/utrs.fa', outfile= 'rnaEmbedding25_7mer.pickle'):
     min_count = 5
     dims = [25,]
     windows = [5,]
@@ -103,7 +126,7 @@ def train_rnas(seq_file = 'data/utrs.fa', outfile= 'rnaEmbedding25.pickle'):
         seq_dict = read_fasta_file(seq_file)
         
         #text = seq_dict.values()
-        tris = get_6_trids()
+        tris = get_7_trids()
         sentences = []
         for seq in seq_dict.values():
             seq = seq.replace('T', 'U')
@@ -118,7 +141,7 @@ def train_rnas(seq_file = 'data/utrs.fa', outfile= 'rnaEmbedding25.pickle'):
     
         vocab = list(model.vocab.keys())
         print vocab
-    	fw = open('rna_dict', 'w')
+    	fw = open('rna_dict_7mer', 'w')
         for val in vocab:
             fw.write(val + '\n')
         fw.close()
