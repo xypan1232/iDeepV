@@ -116,7 +116,7 @@ def read_fasta_file(fasta_file):
     
     return seq_dict
 
-def train_rnas(seq_file = 'data/utrs.fa', outfile= 'rnaEmbedding25_7mer.pickle'):
+def train_rnas(seq_file = 'data/utrs.fa', outfile= 'rnaEmbedding25.pickle'):
     min_count = 5
     dims = [25,]
     windows = [5,]
@@ -126,7 +126,7 @@ def train_rnas(seq_file = 'data/utrs.fa', outfile= 'rnaEmbedding25_7mer.pickle')
         seq_dict = read_fasta_file(seq_file)
         
         #text = seq_dict.values()
-        tris = get_7_trids()
+        tris = get_6_trids()
         sentences = []
         for seq in seq_dict.values():
             seq = seq.replace('T', 'U')
@@ -141,7 +141,7 @@ def train_rnas(seq_file = 'data/utrs.fa', outfile= 'rnaEmbedding25_7mer.pickle')
     
         vocab = list(model.vocab.keys())
         print vocab
-    	fw = open('rna_dict_7mer', 'w')
+    	fw = open('rna_dict', 'w')
         for val in vocab:
             fw.write(val + '\n')
         fw.close()
