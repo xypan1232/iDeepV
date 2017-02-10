@@ -1,7 +1,7 @@
 '''
 This script performs learning the distributed representation for 6-mers using the continuous skip-gram model with 5 sample negative sampling
 '''
-
+import sys
 from gensim.models import Word2Vec
 import pandas as pd
 import numpy as np
@@ -160,7 +160,8 @@ def train_rnas(seq_file = 'data/utrs.fa', outfile= 'rnaEmbedding25.pickle'):
 
 if __name__ == "__main__":
     #test_rna()
-    train_rnas()
+    input_file = sys.argv[1]
+    train_rnas(input_file)
 
 
 

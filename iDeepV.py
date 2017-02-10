@@ -880,6 +880,7 @@ def run_ideepv(dataset = "RBP-24"):
         run_rbp31()
     
 if __name__ == "__main__":
-    run_ideepv()
+    dataset = sys.argv[1]
+    run_ideepv(dataset)
     
     
