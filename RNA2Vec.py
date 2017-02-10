@@ -118,41 +118,40 @@ def read_fasta_file(fasta_file):
 
 def train_rnas(seq_file = 'data/utrs.fa', outfile= 'rnaEmbedding25.pickle'):
     min_count = 5
-    dims = [25,]
-    windows = [5,]
-    for dim in dims:
-      for window in windows:
-        print('dim: ' + str(dim) + ', window: ' + str(window))
-        seq_dict = read_fasta_file(seq_file)
+    dim = 25
+    window = 5
+
+    print('dim: ' + str(dim) + ', window: ' + str(window))
+    seq_dict = read_fasta_file(seq_file)
+    
+    #text = seq_dict.values()
+    tris = get_6_trids()
+    sentences = []
+    for seq in seq_dict.values():
+        seq = seq.replace('T', 'U')
+        trvec = get_4_nucleotide_composition(tris, seq)
         
-        #text = seq_dict.values()
-        tris = get_6_trids()
-        sentences = []
-        for seq in seq_dict.values():
-            seq = seq.replace('T', 'U')
-            trvec = get_4_nucleotide_composition(tris, seq)
-            
-            #for aa in range(len(text)):
-            sentences.append(trvec)
-        #pdb.set_trace()
-        print(len(sentences))
-        model = None
-        model = Word2Vec(sentences, min_count=min_count, size=dim, window=window, sg=1, iter = 10, batch_words=100)
-    
-        vocab = list(model.vocab.keys())
-        print vocab
-    	fw = open('rna_dict', 'w')
-        for val in vocab:
-            fw.write(val + '\n')
-        fw.close()
-        #print model.syn0
-        #pdb.set_trace()
-        embeddingWeights = np.empty([len(vocab), dim])
-    
-        for i in range(len(vocab)):
-          embeddingWeights[i,:] = model[vocab[i]]  
-    
-        allWeights.append(embeddingWeights)
+        #for aa in range(len(text)):
+        sentences.append(trvec)
+    #pdb.set_trace()
+    print(len(sentences))
+    model = None
+    model = Word2Vec(sentences, min_count=min_count, size=dim, window=window, sg=1, iter = 10, batch_words=100)
+
+    vocab = list(model.vocab.keys())
+    print vocab
+    fw = open('rna_dict', 'w')
+    for val in vocab:
+        fw.write(val + '\n')
+    fw.close()
+    #print model.syn0
+    #pdb.set_trace()
+    embeddingWeights = np.empty([len(vocab), dim])
+
+    for i in range(len(vocab)):
+        embeddingWeights[i,:] = model[vocab[i]]  
+
+    allWeights.append(embeddingWeights)
 
  
     with open(outfile, 'w') as f:
