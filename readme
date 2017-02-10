@@ -3,3 +3,11 @@ iDeepV: predicting RBP binding sites using vector representaiton learned from se
 In this study, we test iDeepV on two datasets:
 RBP-31: download from https://github.com/xypan1232/iDeepS/tree/master/datasets/clip
 RBP-24: download from http://www.bioinf.uni-freiburg.de/Software/GraphProt/GraphProt_CLIP_sequences.tar.bz2
+
+RNA2Vec.py is used to learn embdeddings for k-mers
+iDpeepV.py is used to perform the predictions of RBP binding sites, the user only need change the code to show which dataset to test. And reproduce the results in paper. 
+
+Dependency:
+Keras 1.1.2: https://github.com/fchollet/keras <br>
+genism: https://radimrehurek.com/gensim/models/word2vec.html <br>
+sklearn: https://github.com/scikit-learn/scikit-learn <br>
