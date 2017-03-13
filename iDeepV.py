@@ -27,7 +27,7 @@ from keras.callbacks import ModelCheckpoint, EarlyStopping
 from keras.layers.advanced_activations import LeakyReLU
 from seq_motifs import *
 import structure_motifs
-import ushuffle
+#import ushuffle
 
 def generate_sequence_with_same_componenet(sequence):   
     random.shuffle(sequence)
@@ -124,23 +124,6 @@ def split_training_validation(classes, validation_size = 0.2, shuffle = False):
             
     return training_indice, training_label, validation_indice, validation_label        
 
-def set_cnn_model_old(input_dim, input_length):
-    nbfilter = 102
-    model = Sequential()
-    #model.add(brnn)
-    model.add(Convolution1D(input_dim=input_dim,input_length=input_length,
-                            nb_filter=nbfilter,
-                            filter_length=10,
-                            border_mode="valid",
-                            #activation="relu",
-                            subsample_length=1))
-    model.add(Activation('relu'))
-    model.add(MaxPooling1D(pool_length=3))
-
-    model.add(Dropout(0.5))
-
-    return model
-
 def get_embed_dim(embed_file):
     with open(embed_file) as f:
         pepEmbedding = pickle.load(f)
@@ -202,11 +185,6 @@ def run_network(model, total_hid, training, testing, y, validation, val_y):
 
     model.fit(training, y, batch_size=100, nb_epoch=10, verbose=0, validation_data=(validation, val_y), callbacks=[earlystopper])
     
-    #pdb.set_trace()
-    #get_motif(model, testing, protein, y, index = 0, dir1 = 'seq_cnn/')
-    #get_motif(model, testing, protein, y, index = 1, dir1 = 'structure_cnn/', structure = structure)
-    #new_out = get_feature(model, testing)
-    #pdb.set_trace()
     predictions = model.predict_proba(testing)[:,1]
     return predictions, model
 
