@@ -81,221 +81,6 @@ def preprocess_labels(labels, encoder=None, categorical=True):
         y = np_utils.to_categorical(y)
     return y, encoder
 
-   
-def get_protein_motif_fig(filter_weights, filter_outs, out_dir, protein, seq_targets, sample_i = 0, structure = None):
-    print 'plot motif fig', out_dir
-    #seqs, seq_targets = get_seq_targets(protein)
-    seqs = structure
-    if sample_i:
-        print 'sampling'
-        seqs = []
-        for ind, val in enumerate(seqs):
-            if ind in sample_i:
-                seqs.append(val)
-            
-        
-        seq_targets = seq_targets[sample_i]
-        filter_outs = filter_outs[sample_i]
-    
-    num_filters = filter_weights.shape[0]
-    filter_size = 7
-
-    
-    #################################################################
-    # individual filter plots
-    #################################################################
-    # also save information contents
-    filters_ic = []
-    meme_out = structure_motifs.meme_intro('%s/filters_meme.txt'%out_dir, seqs)
-
-    for f in range(num_filters):
-        print 'Filter %d' % f
-
-        # plot filter parameters as a heatmap
-        structure_motifs.plot_filter_heat(filter_weights[f,:,:], '%s/filter%d_heat.pdf' % (out_dir,f))
-
-        # write possum motif file
-        structure_motifs.filter_possum(filter_weights[f,:,:], 'filter%d'%f, '%s/filter%d_possum.txt'%(out_dir,f), False)
-        
-        structure_motifs.plot_filter_logo(filter_outs[:,:, f], filter_size, seqs, '%s/filter%d_logo'%(out_dir,f), maxpct_t=0.5)
-        
-        filter_pwm, nsites = structure_motifs.make_filter_pwm('%s/filter%d_logo.fa'%(out_dir,f))
-        if nsites < 10:
-            # no information
-            filters_ic.append(0)
-        else:
-            # compute and save information content
-            filters_ic.append(info_content(filter_pwm))
-
-            # add to the meme motif file
-            structure_motifs.meme_add(meme_out, f, filter_pwm, nsites, False)
-
-    meme_out.close()
-    
-            
-def get_motif_fig(filter_weights, filter_outs, out_dir, protein, sample_i = 0):
-    print 'plot motif fig', out_dir
-    seqs, seq_targets = get_seq_targets(protein)
-    if sample_i:
-        print 'sampling'
-        seqs = []
-        for ind, val in enumerate(seqs):
-            if ind in sample_i:
-                seqs.append(val)
-            
-        
-        seq_targets = seq_targets[sample_i]
-        filter_outs = filter_outs[sample_i]
-    
-    num_filters = filter_weights.shape[0]
-    filter_size = 7
-
-    #pdb.set_trace()
-    #################################################################
-    # individual filter plots
-    #################################################################
-    # also save information contents
-    filters_ic = []
-    meme_out = meme_intro('%s/filters_meme.txt'%out_dir, seqs)
-
-    for f in range(num_filters):
-        print 'Filter %d' % f
-
-        # plot filter parameters as a heatmap
-        plot_filter_heat(filter_weights[f,:,:], '%s/filter%d_heat.pdf' % (out_dir,f))
-
-        # write possum motif file
-        filter_possum(filter_weights[f,:,:], 'filter%d'%f, '%s/filter%d_possum.txt'%(out_dir,f), False)
-
-        # plot weblogo of high scoring outputs
-        plot_filter_logo(filter_outs[:,:, f], filter_size, seqs, '%s/filter%d_logo'%(out_dir,f), maxpct_t=0.5)
-
-        # make a PWM for the filter
-        filter_pwm, nsites = make_filter_pwm('%s/filter%d_logo.fa'%(out_dir,f))
-
-        if nsites < 10:
-            # no information
-            filters_ic.append(0)
-        else:
-            # compute and save information content
-            filters_ic.append(info_content(filter_pwm))
-
-            # add to the meme motif file
-            meme_add(meme_out, f, filter_pwm, nsites, False)
-
-    meme_out.close()
-
-
-    #################################################################
-    # annotate filters
-    #################################################################
-    # run tomtom #-evalue 0.01 
-    subprocess.call('tomtom -dist pearson -thresh 0.05 -eps -oc %s/tomtom %s/filters_meme.txt %s' % (out_dir, out_dir, 'Ray2013_rbp_RNA.meme'), shell=True)
-
-    # read in annotations
-    filter_names = name_filters(num_filters, '%s/tomtom/tomtom.txt'%out_dir, 'Ray2013_rbp_RNA.meme')
-
-
-    #################################################################
-    # print a table of information
-    #################################################################
-    table_out = open('%s/table.txt'%out_dir, 'w')
-
-    # print header for later panda reading
-    header_cols = ('', 'consensus', 'annotation', 'ic', 'mean', 'std')
-    print >> table_out, '%3s  %19s  %10s  %5s  %6s  %6s' % header_cols
-
-    for f in range(num_filters):
-        # collapse to a consensus motif
-        consensus = filter_motif(filter_weights[f,:,:])
-
-        # grab annotation
-        annotation = '.'
-        name_pieces = filter_names[f].split('_')
-        if len(name_pieces) > 1:
-            annotation = name_pieces[1]
-
-        # plot density of filter output scores
-        fmean, fstd = plot_score_density(np.ravel(filter_outs[:,:, f]), '%s/filter%d_dens.pdf' % (out_dir,f))
-
-        row_cols = (f, consensus, annotation, filters_ic[f], fmean, fstd)
-        print >> table_out, '%-3d  %19s  %10s  %5.2f  %6.4f  %6.4f' % row_cols
-
-    table_out.close()
-
-
-    #################################################################
-    # global filter plots
-    #################################################################
-    if True:
-        new_outs = []
-        for val in filter_outs:
-            new_outs.append(val.T)
-        filter_outs = np.array(new_outs)
-        print filter_outs.shape
-        # plot filter-sequence heatmap
-        plot_filter_seq_heat(filter_outs, '%s/filter_seqs.pdf'%out_dir)
-
-
-def get_RNA_concolutional_array(seq, motif_len = 4):
-    seq = seq.replace('U', 'T')
-    alpha = 'ACGT'
-    #for seq in seqs:
-    #for key, seq in seqs.iteritems():
-    row = (len(seq) + 2*motif_len - 2)
-    new_array = np.zeros((row, 4))
-    for i in range(motif_len-1):
-        new_array[i] = np.array([0.25]*4)
-    
-    for i in range(row-3, row):
-        new_array[i] = np.array([0.25]*4)
-        
-    #pdb.set_trace()
-    for i, val in enumerate(seq):
-        i = i + motif_len-1
-        if val not in 'ACGT':
-            new_array[i] = np.array([0.25]*4)
-            continue
-        try:
-            index = alpha.index(val)
-            new_array[i][index] = 1
-        except:
-            pdb.set_trace()
-        #data[key] = new_array
-    return new_array
-
-def get_protein_concolutional_array(seq, motif_len = 7):       
-    alpha = 'ABCDEFG'
-    row = (len(seq) + 2*motif_len - 2)
-    new_array = np.zeros((row, 7))
-    for i in range(motif_len-1):
-        new_array[i] = np.array([0.14]*7)
-    
-    for i in range(row-6, row):
-        new_array[i] = np.array([0.14]*7)
-
-    for i, val in enumerate(seq):
-        i = i + motif_len-1
-        if val not in alpha:
-            new_array[i] = np.array([0.14]*7)
-            continue
-        try:
-            index = alpha.index(val)
-            new_array[i][index] = 1
-        except:
-            pdb.set_trace()
-        
-    return new_array
-
-
-
-def get_feature(model, X_batch, index=0):
-    inputs = [K.learning_phase()] + [model.inputs[index]]
-    _convout1_f = K.function(inputs, model.layers[0].layers[index].layers[1].output)
-    activations =  _convout1_f([0] + [X_batch[index]])
-    
-    return activations
-
 def split_training_validation(classes, validation_size = 0.2, shuffle = False):
     """split sampels based on balnace classes"""
     num_samples=len(classes)
@@ -338,35 +123,6 @@ def split_training_validation(classes, validation_size = 0.2, shuffle = False):
     
             
     return training_indice, training_label, validation_indice, validation_label        
-   
-def get_motif(model, testing, protein, y, index = 0, dir1 = 'seq_cnn/', structure  = None):
-    sfilter = model.layers[0].layers[index].layers[0].get_weights()
-    filter_weights_old = np.transpose(sfilter[0][:,0,:,:], (2, 1, 0)) #sfilter[0][:,0,:,:]
-    print filter_weights_old.shape
-    #pdb.set_trace()
-    filter_weights = []
-    for x in filter_weights_old:
-        #normalized, scale = preprocess_data(x)
-        #normalized = normalized.T
-        #normalized = normalized/normalized.sum(axis=1)[:,None]
-        x = x - x.mean(axis = 0)
-        filter_weights.append(x)
-        
-    filter_weights = np.array(filter_weights)
-    #pdb.set_trace()
-    filter_outs = get_feature(model, testing, index)
-    #pdb.set_trace()
-    
-    #sample_i = np.array(random.sample(xrange(testing.shape[0]), 500))
-    sample_i =0
-
-    out_dir = dir1 + protein
-    if not os.path.isdir(out_dir):
-        os.mkdir(out_dir)
-    if index == 0:    
-        get_motif_fig(filter_weights, filter_outs, out_dir, protein, sample_i)
-    else:
-        get_protein_motif_fig(filter_weights, filter_outs, out_dir, protein, y, sample_i, structure)
 
 def set_cnn_model_old(input_dim, input_length):
     nbfilter = 102
@@ -432,32 +188,6 @@ def get_cnn_network_graphprot(rna_len = 501, nb_filter = 16):
     
     return model
 
-def get_cnn_network_embed(rna_len, pro_len):
-    nbfilter = 16
-    print 'configure cnn network'
-    embedded_dim, embedding_weights, n_aa_symbols = get_embed_dim('peptideEmbedding25.pickle')
-    seq_model = set_cnn_embed(n_aa_symbols, pro_len, embedded_dim, embedding_weights)
-    print n_aa_symbols
-    embedded_rna_dim, embedding_rna_weights, n_nucl_symbols = get_embed_dim('rnaEmbedding.pickle')
-    print 'symbol', n_nucl_symbols
-    struct_model = set_cnn_embed(n_nucl_symbols, rna_len, embedded_rna_dim, embedding_rna_weights)
-    #pdb.set_trace()
-    print 'pro cnn', seq_model.output_shape
-    print 'rna cnn', struct_model.output_shape
-    model = Sequential()
-    model.add(Merge([seq_model, struct_model], mode='concat', concat_axis=1))
-    
-    #model.add(Bidirectional(LSTM(2*nbfilter)))
-    #model.add(Dropout(0.10))
-    model.add(Flatten())
-    #model.add(Dense(nbfilter*(n_aa_symbols + n_nucl_symbols), activation='relu'))
-    #model.add(Dropout(0.50))
-    model.add(Dense(nbfilter*100, activation='relu')) 
-    model.add(Dropout(0.50))
-    #model.add(BatchNormalization(mode=2))
-    print model.output_shape
-    
-    return model
         
 def run_network(model, total_hid, training, testing, y, validation, val_y):
     model.add(Dense(2))
@@ -633,29 +363,6 @@ def get_6_nucleotide_composition(tris, seq, ordict):
         #pdb.set_trace()        
     return np.asarray(tri_feature)
 
-aa_dict = OrderedDict([
-               ('A', 1), 
-               ('C', 2),
-               ('E', 3),
-               ('D', 4),
-               ('G', 5),
-               ('F', 6),
-               ('I', 7),
-               ('H', 8),
-               ('K', 9),
-               ('M', 10),
-               ('L', 11),
-               ('N', 12),
-               ('Q', 13),
-               ('P', 14),
-               ('S', 15),
-               ('R', 16),
-               ('T', 17),
-               ('W', 18),
-               ('V', 19),
-               ('Y', 20)
-               ])
-
 def read_rna_dict():
     odr_dict = {}
     with open('rna_dict', 'r') as fp:
@@ -666,17 +373,7 @@ def read_rna_dict():
                 odr_dict[val] = ind
     
     return odr_dict
-                
 
-def aa_integerMapping(peptideSeq):
-    peptideArray = []
-    for aa in peptideSeq:
-        if aa_dict.has_key(aa):
-            peptideArray.append(aa_dict[aa])
-        else:
-            peptideArray.append(-1)
-
-    return np.asarray(peptideArray)
 
 def get_rna_seqs_rec(rnas, rna_seq_dict, rna_nax_len, trids, nn_dict):
 
