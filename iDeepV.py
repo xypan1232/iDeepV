@@ -443,9 +443,10 @@ def load_predict_graphprot_data():
     for protein in os.listdir(data_dir):
         if protein in finished_protein:
             continue
+        finished_protein.add(protein)
         protein = protein.split('.')[0]
         print protein
-        finished_protein.add(protein)
+        
         fw.write(protein + '\t')
         data, label = loaddata_graphprot(protein)
         seq_net = get_cnn_network_graphprot(rna_len = 496, nb_filter = seq_hid)
