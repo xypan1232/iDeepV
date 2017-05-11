@@ -439,10 +439,13 @@ def load_predict_graphprot_data():
     data_dir = '/home/panxy/eclipse/rna-protein/data/GraphProt_CLIP_sequences/'
     fw = open('result_file_graphprot_new', 'w')
     seq_hid = 16
+    finished_protein = set()
     for protein in os.listdir(data_dir):
-        
+        if protein in finished_protein:
+            continue
         protein = protein.split('.')[0]
         print protein
+        finished_protein.add(protein)
         fw.write(protein + '\t')
         data, label = loaddata_graphprot(protein)
         seq_net = get_cnn_network_graphprot(rna_len = 496, nb_filter = seq_hid)
