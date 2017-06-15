@@ -15,7 +15,7 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import roc_curve, auc, roc_auc_score
 from keras import backend as K
 from keras.models import Sequential
-from keras.layers.core import Dense, Dropout, Activation, Flatten, Merge
+from keras.layers.core import Dense, Dropout, Activation, Flatten#, Merge
 from keras.layers import Embedding
 from keras.layers.normalization import BatchNormalization
 from keras.layers.advanced_activations import PReLU
@@ -25,8 +25,6 @@ from keras.layers.convolutional import Convolution1D, MaxPooling1D
 from keras.layers import LSTM, Bidirectional 
 from keras.callbacks import ModelCheckpoint, EarlyStopping
 from keras.layers.advanced_activations import LeakyReLU
-from seq_motifs import *
-import structure_motifs
 #import ushuffle
 
 def generate_sequence_with_same_componenet(sequence):   
